@@ -49,13 +49,22 @@ class ProductoSeeder extends Seeder
         $producto4->peso = 0.1;
         $producto4->save();
 
-        $producto4 = new Producto();
-        $producto4->nombre = "Objeto prueba";
-        $producto4->precio = 0;
-        $producto4->alto = 20;
-        $producto4->ancho = 20;
-        $producto4->largo = 40;
-        $producto4->peso = 1;
-        $producto4->save();
+        $producto5 = new Producto();
+        $producto5->nombre = "Objeto prueba";
+        $producto5->precio = 0;
+        $producto5->alto = 20;
+        $producto5->ancho = 20;
+        $producto5->largo = 40;
+        $producto5->peso = 1;
+        $producto5->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Objeto prueba 2";
+        $producto6->precio = 0;
+        $producto6->alto = 20;
+        $producto6->ancho = 20;
+        $producto6->largo = 20;
+        $producto6->peso = 1;
+        $producto6->save();
     }
 }

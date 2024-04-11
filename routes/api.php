@@ -82,6 +82,7 @@ Route::post('/cotizar', function (Request $request) {
         return $dimensiones;
     }
 
+
     //Funcion para llenar un contenedor con un solo producto (Sin aumentar cajas en caso de que exceda el espacio máximo)
     function elegirContenedor($product, $boxList)
     {
@@ -112,41 +113,41 @@ Route::post('/cotizar', function (Request $request) {
         }
     }
 
-
+    //TODO: ESTA FUNCION YA NO FUNCIONA, PORQUE EL ROTAR AHORA NO ACEPTA ARRAYS COMO PARAMETRO
     function calcularEspacios($object, $box)
     {
         //Array donde se guardan los espacios
         $espacios = [];
 
         //Declaración de dimanesiones Objeto
-        $dimensionObjeto = getDimensiones($object);
+        $objeto = getDimensiones($object);
 
         //Declaración de dimensiones Caja
-        $dimensionCaja = getDimensiones($box);
+        $caja = getDimensiones($box);
 
         //Cálculo de espacios
         $espacio1 = array(
             'nombre' => 'espacio 1',
-            'alto' => $dimensionCaja['alto'] - $dimensionObjeto['alto'],
-            'ancho' => $dimensionCaja['ancho'],
-            'largo' => $dimensionCaja['largo'],
-            'volumetrico' => ($dimensionCaja['alto'] - $dimensionObjeto['alto']) * $dimensionCaja['ancho'] * $dimensionCaja['largo']
+            'alto' => $caja['alto'] - $objeto['alto'],
+            'ancho' => $caja['ancho'],
+            'largo' => $caja['largo'],
+            'volumetrico' => ($caja['alto'] - $objeto['alto']) * $caja['ancho'] * $caja['largo']
         );
 
         $espacio2 = array(
             'nombre' => 'espacio 2',
-            'alto' => $dimensionObjeto['alto'],
-            'ancho' => $dimensionCaja['ancho'] - $dimensionObjeto['ancho'],
-            'largo' => $dimensionCaja['largo'],
-            'volumetrico' => $dimensionObjeto['alto'] * ($dimensionCaja['ancho'] - $dimensionObjeto['ancho']) * $dimensionCaja['largo']
+            'alto' => $objeto['alto'],
+            'ancho' => $caja['ancho'] - $objeto['ancho'],
+            'largo' => $caja['largo'],
+            'volumetrico' => $objeto['alto'] * ($caja['ancho'] - $objeto['ancho']) * $caja['largo']
         );
 
         $espacio3 = array(
             'nombre' => 'espacio 3',
-            'alto' => $dimensionObjeto['alto'],
-            'ancho' => $dimensionObjeto['ancho'],
-            'largo' => $dimensionCaja['largo'] - $dimensionObjeto['largo'],
-            'volumetrico' => $dimensionObjeto['alto'] * $dimensionObjeto['ancho'] * ($dimensionCaja['largo'] - $dimensionObjeto['largo'])
+            'alto' => $objeto['alto'],
+            'ancho' => $objeto['ancho'],
+            'largo' => $caja['largo'] - $objeto['largo'],
+            'volumetrico' => $objeto['alto'] * $objeto['ancho'] * ($caja['largo'] - $objeto['largo'])
         );
 
 
@@ -155,29 +156,27 @@ Route::post('/cotizar', function (Request $request) {
         //Eliminar Espacios sin volumen
         $espacios = eliminarEspacios($espacios);
         //Alternar ancho x largo (si largo < ancho)
-        $espacios = ordenarCajas($espacios);
+
+        //$espacios = rotarCajas($espacios);
 
 
         return $espacios;
     }
 
-    //NOTA: Quizás sea necesario alternar los lados de igual manera (para probar todas las posibilidades)
-    function ordenarCajas($boxes)
+    //NOTA: Quizás sea mejor no usar el array como parametro (CAMBIADO)
+    function rotarCajas($box)
     {
-        foreach ($boxes as $key => &$box) {
-            $ancho = $box['ancho'];
-            $largo = $box['largo'];
+        $ancho = $box['ancho'];
+        $largo = $box['largo'];
 
-            if ($largo < $ancho) {
-                $box['ancho'] = $largo;
-                $box['largo'] = $ancho;
-            }
-        }
-        unset($box); // Desvincular la referencia al último elemento
-        return $boxes;
+        $box['ancho'] = $largo;
+        $box['largo'] = $ancho;
+
+        unset($box); // Desvincular la referencia al último elementoj
+        return $box;
     }
 
-    function eliminarEspacios($boxes)
+    function eliminarEspacios($boxes) //En Array
     {
         foreach ($boxes as $key => $box) {
             if ($box['volumetrico'] == 0) {
@@ -187,37 +186,97 @@ Route::post('/cotizar', function (Request $request) {
         return $boxes;
     }
 
-    function cantidadMax($product, $boxes)
+    function cantidadMax($product, $box)
     {
-        $total = 0;
-        foreach ($boxes as $key => &$box) {
-            $largo = floor($box['largo'] / $product['largo']);
-            $ancho = floor($box['ancho'] / $product['ancho']);
-            $alto = floor($box['alto'] / $product['alto']);
-            $volumen = $largo * $ancho * $alto;
-            $total += $volumen;
+        //Obtener dimensiones
+        $producto = getDimensiones($product);
+        $cajas = getDimensiones($box);
 
-            if ($largo == 0 && $ancho == 0 && $alto == 0) {
-                break;
+        $cantidadBase = calcularBase($producto, $cajas);
+        $cantidadAltura = floor($box['alto'] / $product['alto']);
+        return $cantidadBase * $cantidadAltura;
+    }
+
+    function calcularBase($producto, $cajas) //Para un Objeto
+    {
+        $opcion1 = floor(($cajas['ancho'] / $producto['ancho'])) * floor(($cajas['largo'] / $producto['largo']));
+        $opcion2 = floor(($cajas['largo'] / $producto['ancho'])) * floor(($cajas['ancho'] / $producto['largo']));
+        $resultado = ($opcion1 >= $opcion2) ? $opcion1 : $opcion2;
+        return $resultado;
+    }
+
+    //logica de un objeto, luego pasar a distintos objetos (los parametros pasan a ser arrays)
+    function llenarCaja($products, $box)
+    {
+        //Inicializar variable
+        $espacioUsado = 0;
+        $espacioLateral = 0;
+        $espacioSuperior = 0;
+
+        foreach ($products as $key => $product) {
+            //Llenar espacio USADO con el primer objeto
+            if ($espacioUsado == 0) {
+                //1. Espacio usado
+                $espacioUsado = getDimensiones($product);
+                //Eliminar producto del array
+                unset($products[$key]);
+                //2. Espacio libre "superior"
+                $espacioSuperior = crearBase($box['largo'] - $espacioUsado['largo'], $box['ancho']);
+                //3. Espacio libre "lateral"
+                $espacioLateral = crearBase($box['ancho'] - $espacioUsado['ancho'], $espacioUsado['largo']);
+                continue;
             }
+            if ($product['ancho'] <= $espacioLateral['ancho'] && $espacioLateral['largo'] <= $product['largo']) {
+            }
+        }
+    }
 
-            $espacios = calcularEspacios($product, $box);
-            $espacios = ordenarCajas($espacios);
+    function crearBase($ancho, $largo)
+    {
+        $box = array(
+            'ancho' => $ancho,
+            'largo' =>  $largo,
+            'base' => $largo * $ancho
+        );
+        return $box;
+    }
 
-            $total += cantidadMax($product, $espacios); // Sumar la cantidad máxima de las cajas internas
+    //THE ACTUAL CODE: BIN PACKING ALTGORITHM
+    function binPacking($items, $box)
+    {
+        //ordenar items de mayor a menor
+        $items = ordenAscArray($items, 'alto');
+        $conteo = [];
+
+        foreach ($items as $item) {
+            $id = $item['id'];
+            if (array_key_exists($id, $conteo)) {
+                $conteo[$id]['cantidad']++;
+            } else {
+                $conteo[$id] = [
+                    "nombre" => $item["nombre"],
+                    "cantidad" => 1,
+                    "precio" => $item["precio"],
+                    "peso" => $item["peso"],
+                    "alto" => $item["alto"],
+                    "ancho" => $item["ancho"],
+                    "largo" => $item["largo"],
+                    "volumetrico" => $item["volumetrico"]
+                ];
+            }
         }
 
-        return $total;
+        //calcular items necesarios en la base// TODO: NO DIVIDE ADECUADAMENTE 
+        foreach ($conteo as &$item) {
+            $item['cantidad'] = floor($box['alto'] / $item['alto']);
+            if ($item['cantidad'] < 1) {
+                $item['cantidad'] = 1;
+            }
+        }
+        unset($item); // Desreferenciar la última referencia
+        return $conteo;
+        //EMPEZAR A LLENAR CAJA
     }
 
-    function calcularBase()
-    {
-    }
-
-
-
-
-    $Box_list = ordenAscArray($Box_list, 'volumetrico');
-    $boxPrueba = [$Box_list[3]];
-    return getDimensiones($Box_list[0]);
+    return binPacking($Product_list, $Box_list[3]);
 });
