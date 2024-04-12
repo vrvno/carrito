@@ -66,7 +66,7 @@ Route::post('/cotizar', function (Request $request) {
     //Función para ordenar Arrays Descendente:
     function ordenDescArray($array, $atributo)
     {
-        array_multisort(array_column($array, $atributo), SORT_ASC, $array);
+        array_multisort(array_column($array, $atributo), SORT_DESC, $array);
         return $array;
     }
 
@@ -206,7 +206,7 @@ Route::post('/cotizar', function (Request $request) {
     }
 
     //logica de un objeto, luego pasar a distintos objetos (los parametros pasan a ser arrays)
-    function llenarCaja($products, $box)
+    function llenarCajax($products, $box)
     {
         //Inicializar variable
         $espacioUsado = 0;
@@ -245,7 +245,7 @@ Route::post('/cotizar', function (Request $request) {
     function binPacking($items, $box)
     {
         //ordenar items de mayor a menor
-        $items = ordenAscArray($items, 'alto');
+        $items = ordenDescArray($items, 'ancho');
         $conteo = [];
 
         foreach ($items as $item) {
@@ -274,8 +274,47 @@ Route::post('/cotizar', function (Request $request) {
             }
         }
         unset($item); // Desreferenciar la última referencia
-        return $conteo;
-        //EMPEZAR A LLENAR CAJA
+
+        //DESPUES CREAR UN ARRAY CON LOS PRODUCTOS INDIVIDUALMENTE (YA DIVIDIDO X LA ALTURA)
+
+        //EMPEZAR A LLENAR CAJA (2 cajas medianas, 2 chicas);
+
+        //Usar la lógica de un bin (dividir la caja como si fueran bins)
+
+        function llenarCaja(&$items, &$box)
+        {
+            $resultado = ''; //para testear
+            foreach ($items as $key => $item) {
+                $bin = $box;
+
+                if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo']) {
+                    //cambiar espacio disponible de caja
+                    $box['largo'] -= $item['largo'];
+                    //modificar bin
+                    $bin['largo'] = $item['largo'];
+                    $bin['ancho'] -= $item['ancho'];
+                    //eliminar item del array (ya que fue puesto)
+                    unset($items[$key]);
+                    //empezar a recorrer el bin:
+                    //CREAR UNA FUNCION PARA UTILIZAR RECURSIVIDAD
+                    llenarCaja($items, $bin);
+                }
+            } //TODO CREAR CODIGO EN CASO DE QUE EL ARRAY AUN CONTENGA PRODUCTOS
+            if (empty($items)) {
+                $resultado = "salió bien!";
+                return $resultado;
+            } else {
+                $resultado = 'algo salió mal';
+                return $resultado;
+            }
+        }
+
+        function elegirCaja(&$items, &$boxs)
+        {
+            foreach ($boxs as $key => $box) {
+            }
+        }
+        return llenarCaja($items, $box);
     }
 
     return binPacking($Product_list, $Box_list[3]);
