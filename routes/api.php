@@ -241,8 +241,9 @@ Route::post('/cotizar', function (Request $request) {
         return $box;
     }
 
-    //THE ACTUAL CODE: BIN PACKING ALTGORITHM
-    function binPacking($items, $box)
+    // CODIGO QUE FUNCIONA //
+
+    function dividirOrden($items, $box)
     {
         //ordenar items de mayor a menor
         $items = ordenDescArray($items, 'ancho');
@@ -273,49 +274,99 @@ Route::post('/cotizar', function (Request $request) {
                 $item['cantidad'] = 1;
             }
         }
-        unset($item); // Desreferenciar la última referencia
 
-        //DESPUES CREAR UN ARRAY CON LOS PRODUCTOS INDIVIDUALMENTE (YA DIVIDIDO X LA ALTURA)
+        //recorrer conteo y separar items individualmente
+        $arraySeparado = [];
 
-        //EMPEZAR A LLENAR CAJA (2 cajas medianas, 2 chicas);
+        // Iterar sobre el array original
+        foreach ($conteo as $id => $elemento) {
+            // Obtener la cantidad de elementos
+            $cantidad = $elemento['cantidad'];
 
-        //Usar la lógica de un bin (dividir la caja como si fueran bins)
-
-        function llenarCaja(&$items, &$box)
-        {
-            $resultado = ''; //para testear
-            foreach ($items as $key => $item) {
-                $bin = $box;
-
-                if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo']) {
-                    //cambiar espacio disponible de caja
-                    $box['largo'] -= $item['largo'];
-                    //modificar bin
-                    $bin['largo'] = $item['largo'];
-                    $bin['ancho'] -= $item['ancho'];
-                    //eliminar item del array (ya que fue puesto)
-                    unset($items[$key]);
-                    //empezar a recorrer el bin:
-                    //CREAR UNA FUNCION PARA UTILIZAR RECURSIVIDAD
-                    llenarCaja($items, $bin);
-                }
-            } //TODO CREAR CODIGO EN CASO DE QUE EL ARRAY AUN CONTENGA PRODUCTOS
-            if (empty($items)) {
-                $resultado = "salió bien!";
-                return $resultado;
-            } else {
-                $resultado = 'algo salió mal';
-                return $resultado;
+            // Crear elementos individuales duplicados según la cantidad
+            for ($i = 0; $i < $cantidad; $i++) {
+                $elementoIndividual = [
+                    "id" => $id,
+                    "nombre" => $elemento["nombre"],
+                    "precio" => $elemento["precio"],
+                    "peso" => $elemento["peso"],
+                    "alto" => $elemento["alto"],
+                    "ancho" => $elemento["ancho"],
+                    "largo" => $elemento["largo"],
+                    "volumetrico" => $elemento["volumetrico"]
+                ];
+                // Agregar el elemento individual al array separado
+                $arraySeparado[] = $elementoIndividual;
             }
         }
 
-        function elegirCaja(&$items, &$boxs)
-        {
-            foreach ($boxs as $key => $box) {
-            }
-        }
-        return llenarCaja($items, $box);
+        return $arraySeparado;
     }
 
-    return binPacking($Product_list, $Box_list[3]);
+    function llenarCaja(&$items, &$box)
+    {
+
+        //CREAR FOR EACH PARA CAJAS
+        $resultado = '';
+        foreach ($items as $key => $item) {
+            $bin = $box;
+
+            if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo']) {
+                //cambiar espacio disponible de caja
+                $box['largo'] -= $item['largo'];
+                //modificar bin
+                $bin['largo'] = $item['largo'];
+                $bin['ancho'] -= $item['ancho'];
+                //eliminar item del array (ya que fue puesto)
+                unset($items[$key]);
+                //empezar a recorrer el bin:
+                //CREAR UNA FUNCION PARA UTILIZAR RECURSIVIDAD
+                llenarCaja($items, $bin);
+            }
+        } //TODO CREAR CODIGO EN CASO DE QUE EL ARRAY AUN CONTENGA PRODUCTOS
+        if (empty($items)) {
+            return 'salio bien';
+        } else {
+            return 'algo salio mal';
+        }
+    }
+
+    function elegirCaja(&$items, &$boxes)
+    {
+        $pedido = [];
+        $itemsTemp = $items;
+        $boxes = ordenAscArray($boxes, 'volumetrico');
+        foreach ($boxes as $key => $box) {
+            $items = dividirOrden($items, $box);
+            $resultado = llenarCaja($items, $box);
+
+            if ($resultado) {
+                $pedido[] =
+                    [
+                        "id-caja" => $box['id'],
+                        "nombre-caja" => $box['nombre'],
+                        "alto" => $box["alto"],
+                        "ancho" => $box["ancho"],
+                        "largo" => $box["largo"],
+                        "volumetrico" => $box['volumetrico'],
+                        "productos" => $itemsTemp
+                    ];
+                break;
+            } else {
+                continue;
+            }
+        }
+        return $pedido;
+    }
+
+
+    //THE ACTUAL CODE: BIN PACKING ALTGORITHM
+    function binPacking($items, $boxes)
+    {
+        $boxes = ordenAscArray($boxes, 'volumetrico');
+        $items = dividirOrden($items, $boxes);
+        return elegirCaja($items, $box);
+    }
+
+    return llenarCaja($Product_list, $Box_list[3]);
 });
