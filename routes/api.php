@@ -241,8 +241,9 @@ Route::post('/cotizar', function (Request $request) {
         return $box;
     }
 
-    //THE ACTUAL CODE: BIN PACKING ALTGORITHM
-    function binPacking($items, $box)
+    // CODIGO QUE FUNCIONA //
+
+    function dividirOrden($items, $box) //TODO: RESTAR ARRAY ORIGINAL CON EXCEDENTE.
     {
         //ordenar items de mayor a menor
         $items = ordenDescArray($items, 'ancho');
@@ -268,54 +269,112 @@ Route::post('/cotizar', function (Request $request) {
 
         //calcular items necesarios en la base// TODO: NO DIVIDE ADECUADAMENTE 
         foreach ($conteo as &$item) {
-            $item['cantidad'] = floor($box['alto'] / $item['alto']);
-            if ($item['cantidad'] < 1) {
-                $item['cantidad'] = 1;
+            $cantidadPermitida = floor($box['alto'] / $item['alto']);
+            //$item['cantidad'] = floor($box['alto'] / $item['alto']);
+            if ($cantidadPermitida < 1) {
+                $cantidadPermitida = 1;
             }
+            $item['cantidad'] = ceil($item['cantidad'] / $cantidadPermitida);
         }
-        unset($item); // Desreferenciar la última referencia
 
-        //DESPUES CREAR UN ARRAY CON LOS PRODUCTOS INDIVIDUALMENTE (YA DIVIDIDO X LA ALTURA)
+        //recorrer conteo y separar items individualmente
+        $arraySeparado = [];
 
-        //EMPEZAR A LLENAR CAJA (2 cajas medianas, 2 chicas);
+        // Iterar sobre el array original
+        foreach ($conteo as $id => $elemento) {
+            // Obtener la cantidad de elementos
+            $cantidad = $elemento['cantidad'];
 
-        //Usar la lógica de un bin (dividir la caja como si fueran bins)
-
-        function llenarCaja(&$items, &$box)
-        {
-            $resultado = ''; //para testear
-            foreach ($items as $key => $item) {
-                $bin = $box;
-
-                if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo']) {
-                    //cambiar espacio disponible de caja
-                    $box['largo'] -= $item['largo'];
-                    //modificar bin
-                    $bin['largo'] = $item['largo'];
-                    $bin['ancho'] -= $item['ancho'];
-                    //eliminar item del array (ya que fue puesto)
-                    unset($items[$key]);
-                    //empezar a recorrer el bin:
-                    //CREAR UNA FUNCION PARA UTILIZAR RECURSIVIDAD
-                    llenarCaja($items, $bin);
-                }
-            } //TODO CREAR CODIGO EN CASO DE QUE EL ARRAY AUN CONTENGA PRODUCTOS
-            if (empty($items)) {
-                $resultado = "salió bien!";
-                return $resultado;
-            } else {
-                $resultado = 'algo salió mal';
-                return $resultado;
+            // Crear elementos individuales duplicados según la cantidad
+            for ($i = 0; $i < $cantidad; $i++) {
+                $elementoIndividual = [
+                    "id" => $id,
+                    "nombre" => $elemento["nombre"],
+                    "precio" => $elemento["precio"],
+                    "peso" => $elemento["peso"],
+                    "alto" => $elemento["alto"],
+                    "ancho" => $elemento["ancho"],
+                    "largo" => $elemento["largo"],
+                    "volumetrico" => $elemento["volumetrico"]
+                ];
+                // Agregar el elemento individual al array separado
+                $arraySeparado[] = $elementoIndividual;
             }
         }
 
-        function elegirCaja(&$items, &$boxs)
-        {
-            foreach ($boxs as $key => $box) {
+        return $arraySeparado;
+    }
+    //TODO: Cambiar funcion, cosa que retorne los productos que fueron almacenados, no es relevante para esta funcion pero si para la de elegir cajas
+    function llenarCaja(&$items, &$box)
+    {
+        foreach ($items as $key => $item) {
+            $bin = $box;
+            //COPIA DE ARRAY ITEMS
+            $itemsTemp = $items;
+            if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo'] && $item['alto'] <= $box['alto']) {
+                //cambiar espacio disponible de caja
+                $box['largo'] -= $item['largo'];
+                //modificar bin
+                $bin['largo'] = $item['largo'];
+                $bin['ancho'] -= $item['ancho'];
+                //eliminar item del array (ya que fue puesto)
+                unset($items[$key]);
+                //empezar a recorrer el bin:
+                llenarCaja($items, $bin);
             }
         }
-        return llenarCaja($items, $box);
+
+        if (empty($items)) {
+            //retornar items colocados
+            //return $itemsAlmacenados;
+            return true;
+        } else {
+            return $items;
+        }
     }
 
-    return binPacking($Product_list, $Box_list[3]);
+    function elegirCaja(&$items, &$boxes)
+    {
+        $pedido = [];
+        $itemsTemp = $items;
+        $boxes = ordenAscArray($boxes, 'volumetrico');
+        foreach ($boxes as $box) {
+            $items = dividirOrden($items, $box);
+            $resultado = llenarCaja($items, $box);
+
+            //validar viabilidad por volumen total del pedido
+
+            if ($resultado === true) {
+                $pedido[] =
+                    [
+                        "id-caja" => $box['id'],
+                        "nombre-caja" => $box['nombre'],
+                        "alto" => $box["alto"],
+                        "ancho" => $box["ancho"],
+                        "largo" => $box["largo"],
+                        "volumetrico" => $box['volumetrico'],
+                        "productos" => $itemsTemp
+                    ];
+                break;
+            }
+        }
+        if (!empty($items)) {
+            //AGREGAR FUNCION PARA SEGUIR AGREGANDO ITEMS EN OTRA CAJA (Puede ser recursiva?)
+            //RECUPERAR LISTA DE ITEMS SOBRANTES (REVERTIR LA DIVISION)
+            //elegirCaja($resultado, $boxes);
+            return 'no caben los productos en las cajas disponibles';
+        }
+
+        return $pedido;
+    }
+
+    function intento($items, $box)
+    {
+        $items = dividirOrden($items, $box);
+        $resultado = llenarCaja($items, $box);
+        return $resultado;
+    }
+
+
+    return elegirCaja($Product_list, $Box_list);
 });
