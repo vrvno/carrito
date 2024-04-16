@@ -304,20 +304,28 @@ Route::post('/cotizar', function (Request $request) {
 
         return $arraySeparado;
     }
+
+    /*Los items que entren a esta funcion ya van a estar depurados, por lo que para conseguir los items que de verdad esten 
+    sobrando se deberá crear un array con al diferencia de los itemsTemporales (antes de la division) y los items Almacenados */
+
     //TODO: Cambiar funcion, cosa que retorne los productos que fueron almacenados, no es relevante para esta funcion pero si para la de elegir cajas
     function llenarCaja(&$items, &$box)
     {
+        //COPIA DE ARRAY ITEMS
+        $itemsTemp = $items;
+        //Items ya almacenados
+        $itemsAlmacenados = [];
         foreach ($items as $key => $item) {
             $bin = $box;
-            //COPIA DE ARRAY ITEMS
-            $itemsTemp = $items;
             if ($item['ancho'] <= $box['ancho'] && $item['largo'] <= $box['largo'] && $item['alto'] <= $box['alto']) {
                 //cambiar espacio disponible de caja
                 $box['largo'] -= $item['largo'];
                 //modificar bin
                 $bin['largo'] = $item['largo'];
                 $bin['ancho'] -= $item['ancho'];
-                //eliminar item del array (ya que fue puesto)
+                //almacenarItems
+                $itemsAlmacenados[] = $item;
+                //eliminar item del array
                 unset($items[$key]);
                 //empezar a recorrer el bin:
                 llenarCaja($items, $bin);
@@ -325,26 +333,27 @@ Route::post('/cotizar', function (Request $request) {
         }
 
         if (empty($items)) {
-            //retornar items colocados
-            //return $itemsAlmacenados;
-            return true;
+            // return $itemsTemp;
+            return 'cupieron';
         } else {
-            return $items;
+            //return $itemsAlmacenados;
+            return 'no cupieron';
         }
     }
+
+    //SERIA MEJOR SI DIVIDO LA ORDEN EN LA FUNCION DE LLENAR CAJAS???
 
     function elegirCaja(&$items, &$boxes)
     {
         $pedido = [];
-        $itemsTemp = $items;
+        $itemsTemp = $items; //sin modificaciones
         $boxes = ordenAscArray($boxes, 'volumetrico');
         foreach ($boxes as $box) {
             $items = dividirOrden($items, $box);
             $resultado = llenarCaja($items, $box);
 
             //validar viabilidad por volumen total del pedido
-
-            if ($resultado === true) {
+            if (empty($items)) {
                 $pedido[] =
                     [
                         "id-caja" => $box['id'],
@@ -353,28 +362,43 @@ Route::post('/cotizar', function (Request $request) {
                         "ancho" => $box["ancho"],
                         "largo" => $box["largo"],
                         "volumetrico" => $box['volumetrico'],
-                        "productos" => $itemsTemp
+                        "productos" => $resultado
                     ];
                 break;
             }
         }
+        //Lógica: Si todos los items no entran en una caja, se utiliza la caja más grande y los items sobrantes entrar al loop nuevamente
         if (!empty($items)) {
-            //AGREGAR FUNCION PARA SEGUIR AGREGANDO ITEMS EN OTRA CAJA (Puede ser recursiva?)
-            //RECUPERAR LISTA DE ITEMS SOBRANTES (REVERTIR LA DIVISION)
-            //elegirCaja($resultado, $boxes);
-            return 'no caben los productos en las cajas disponibles';
+            // Crear array con items sobrantes
+            $copiaItems = $itemsTemp;
+            $itemsTemp = dividirOrden($itemsTemp, $boxes[count($boxes) - 1]);
+            $almacenados = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]);
+            $pedido[] = [
+                "id-caja" => $boxes[count($boxes) - 1]['id'],
+                "nombre-caja" => $boxes[count($boxes) - 1]['nombre'],
+                "alto" => $boxes[count($boxes) - 1]["alto"],
+                "ancho" => $boxes[count($boxes) - 1]["ancho"],
+                "largo" => $boxes[count($boxes) - 1]["largo"],
+                "volumetrico" => $boxes[count($boxes) - 1]['volumetrico'],
+                "productos" => $almacenados
+            ];
+            // Agregar los resultados de la nueva caja al pedido actual
+            $ItemSobrantes = array_diff($copiaItems, $almacenados);
+            $pedido = array_merge($pedido, elegirCaja($ItemSobrantes, $boxes));
         }
 
         return $pedido;
     }
 
-    function intento($items, $box)
+    /*function intento($items, $box)
     {
         $items = dividirOrden($items, $box);
         $resultado = llenarCaja($items, $box);
         return $resultado;
-    }
+    }*/
 
 
-    return elegirCaja($Product_list, $Box_list);
+    //return elegirCaja($Product_list, $Box_list);
+    //return dividirOrden($Product_list, $Box_list[3]);
+    return llenarCaja($Product_list, $Box_list[3]);
 });
