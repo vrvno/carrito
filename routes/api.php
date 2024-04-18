@@ -267,7 +267,7 @@ Route::post('/cotizar', function (Request $request) {
             }
         }
 
-        //calcular items necesarios en la base// TODO: NO DIVIDE ADECUADAMENTE 
+        //calcular items necesarios en la base// 
         foreach ($conteo as &$item) {
             $cantidadPermitida = floor($box['alto'] / $item['alto']);
             //$item['cantidad'] = floor($box['alto'] / $item['alto']);
@@ -301,8 +301,42 @@ Route::post('/cotizar', function (Request $request) {
                 $arraySeparado[] = $elementoIndividual;
             }
         }
-
+        //AGREGAR CANTIDAD ORIGINAL ACA
         return $arraySeparado;
+    }
+
+    function restarCantidades($array1, $array2)
+    {
+        // Seguimiento de cantidades en el primer array
+        $cantidades = [];
+        foreach ($array1 as $producto) {
+            $id = $producto['id'];
+            if (!isset($cantidades[$id])) {
+                $cantidades[$id] = 0;
+            }
+            $cantidades[$id]++;
+        }
+
+        // Restar cantidades del segundo array
+        foreach ($array2 as $producto) {
+            $id = $producto['id'];
+            if (isset($cantidades[$id]) && $cantidades[$id] > 0) {
+                $cantidades[$id]--;
+            }
+        }
+
+        // Crear nuevo array con cantidades restantes
+        $resultado = [];
+        foreach ($cantidades as $id => $cantidad) {
+            for ($i = 0; $i < $cantidad; $i++) {
+                $producto = array_values(array_filter($array1, function ($el) use ($id) {
+                    return $el['id'] == $id;
+                }))[0];
+                $resultado[] = $producto;
+            }
+        }
+
+        return $resultado;
     }
 
     /*Los items que entren a esta funcion ya van a estar depurados, por lo que para conseguir los items que de verdad esten 
@@ -333,19 +367,21 @@ Route::post('/cotizar', function (Request $request) {
         }
 
         if (empty($items)) {
-            // return $itemsTemp;
-            return 'cupieron';
+            return $itemsTemp;
+            //return 'cupieron';
         } else {
-            //return $itemsAlmacenados;
-            return 'no cupieron';
+            $resultado = [$itemsAlmacenados, $items];
+            return $resultado;
+            //IMPLEMENTAR LOGICA DE REVERSION PARA RECUPERAR LISTA DE ITEMS QUE SI CUPIERON
+            //return 'no cupieron';
         }
     }
 
-    //SERIA MEJOR SI DIVIDO LA ORDEN EN LA FUNCION DE LLENAR CAJAS???
-
+    //Elegir Caja V1
+    /*
     function elegirCaja(&$items, &$boxes)
     {
-        $pedido = [];
+
         $itemsTemp = $items; //sin modificaciones
         $boxes = ordenAscArray($boxes, 'volumetrico');
         foreach ($boxes as $box) {
@@ -362,14 +398,17 @@ Route::post('/cotizar', function (Request $request) {
                         "ancho" => $box["ancho"],
                         "largo" => $box["largo"],
                         "volumetrico" => $box['volumetrico'],
-                        "productos" => $resultado
+                        "productos" => $itemsTemp
                     ];
                 break;
             }
         }
         //Lógica: Si todos los items no entran en una caja, se utiliza la caja más grande y los items sobrantes entrar al loop nuevamente
+        // Complicaciones con hacer orden con productos
+        //Intentar elegir unicamente las cajas (para ver si funciona el correctamente el flujo)
         if (!empty($items)) {
             // Crear array con items sobrantes
+            /*
             $copiaItems = $itemsTemp;
             $itemsTemp = dividirOrden($itemsTemp, $boxes[count($boxes) - 1]);
             $almacenados = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]);
@@ -382,23 +421,282 @@ Route::post('/cotizar', function (Request $request) {
                 "volumetrico" => $boxes[count($boxes) - 1]['volumetrico'],
                 "productos" => $almacenados
             ];
-            // Agregar los resultados de la nueva caja al pedido actual
-            $ItemSobrantes = array_diff($copiaItems, $almacenados);
-            $pedido = array_merge($pedido, elegirCaja($ItemSobrantes, $boxes));
+            // Agregar los resultados de la nueva caja al pedido actual 
+
+            //Invertir valores del array(multiplicando por cantidad permitida verticalmente)
+            $itemSobrantes = [];
+            foreach ($almacenados as $almacenado) {
+                $cantidad = $boxes[count($boxes) - 1]['alto'] / $almacenado['alto'];
+                for ($i = 0; $i < $cantidad; $i++) {
+                    $itemSobrantes[] = $almacenado; //puede haber un error acá
+                }
+            }
+
+            $itemSobrantes = restarCantidades($copiaItems, $itemSobrantes); //SE DEBE INVERTIR LA CANTIDAD
+            $pedido = array_merge($pedido, elegirCaja($itemSobrantes, $boxes)); 
+            $resultado = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]);
+            $pedido[] = [
+                "id-caja" => $boxes[count($boxes) - 1]['id'],
+                "nombre-caja" => $boxes[count($boxes) - 1]['nombre']
+            ];
+            $pedido = array_merge($pedido, elegirCaja($itemsTemp, $boxes));
+        }
+
+        return $pedido;
+    } */
+
+    function elegirCaja(&$items, &$boxes)
+    {
+
+        $itemsTemp = $items; //sin modificaciones
+        $boxes = ordenAscArray($boxes, 'volumetrico');
+        foreach ($boxes as $box) {
+            $items = dividirOrden($items, $box);
+            $resultado = llenarCaja($items, $box);
+
+            //validar viabilidad por volumen total del pedido
+            if (empty($items)) {
+                $pedido[] =
+                    [
+                        "id-caja" => $box['id'],
+                        "nombre-caja" => $box['nombre'],
+                        "alto" => $box["alto"],
+                        "ancho" => $box["ancho"],
+                        "largo" => $box["largo"],
+                        "volumetrico" => $box['volumetrico'],
+                        "productos" => $itemsTemp
+                    ];
+                break;
+            }
+        }
+        //Lógica: Si todos los items no entran en una caja, se utiliza la caja más grande y los items sobrantes entrar al loop nuevamente
+        // Complicaciones con hacer orden con productos
+        //Intentar elegir unicamente las cajas (para ver si funciona el correctamente el flujo)
+        if (!empty($items)) {
+            // Crear array con items sobrantes
+            /*
+            $copiaItems = $itemsTemp;
+            $itemsTemp = dividirOrden($itemsTemp, $boxes[count($boxes) - 1]);
+            $almacenados = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]);
+            $pedido[] = [
+                "id-caja" => $boxes[count($boxes) - 1]['id'],
+                "nombre-caja" => $boxes[count($boxes) - 1]['nombre'],
+                "alto" => $boxes[count($boxes) - 1]["alto"],
+                "ancho" => $boxes[count($boxes) - 1]["ancho"],
+                "largo" => $boxes[count($boxes) - 1]["largo"],
+                "volumetrico" => $boxes[count($boxes) - 1]['volumetrico'],
+                "productos" => $almacenados
+            ];
+            // Agregar los resultados de la nueva caja al pedido actual 
+
+            //Invertir valores del array(multiplicando por cantidad permitida verticalmente)
+            $itemSobrantes = [];
+            foreach ($almacenados as $almacenado) {
+                $cantidad = $boxes[count($boxes) - 1]['alto'] / $almacenado['alto'];
+                for ($i = 0; $i < $cantidad; $i++) {
+                    $itemSobrantes[] = $almacenado; //puede haber un error acá
+                }
+            }
+
+            $itemSobrantes = restarCantidades($copiaItems, $itemSobrantes); //SE DEBE INVERTIR LA CANTIDAD
+            $pedido = array_merge($pedido, elegirCaja($itemSobrantes, $boxes)); */
+            $resultado = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]);
+            $pedido[] = [
+                "id-caja" => $boxes[count($boxes) - 1]['id'],
+                "nombre-caja" => $boxes[count($boxes) - 1]['nombre']
+            ];
+            $pedido = array_merge($pedido, elegirCaja($itemsTemp, $boxes));
         }
 
         return $pedido;
     }
 
-    /*function intento($items, $box)
+    //SI EL PROBLEMA ES LA DIVISION ES MEJOR QUE LAS FUNCIONES SE LLAMEN INDIVIDUALMENTE A UNA FUNCION EXTERNA
+    //SE DIVIDE UNA VEZ JUSTO ANTES DE ENTRAR A LA FUNCION
+
+    function intento(&$items, &$boxes, $copiaItems)
     {
-        $items = dividirOrden($items, $box);
-        $resultado = llenarCaja($items, $box);
-        return $resultado;
-    }*/
+        $boxes = ordenAscArray($boxes, 'volumetrico');
+        foreach ($boxes as  $box) {
+            $items = dividirOrden($items, $box);
+            $resultado = llenarCaja($items, $box);
+
+            if (empty($items)) {
+                $pedido[] =
+                    [
+                        "id-caja" => $box['id'],
+                        "nombre-caja" => $box['nombre'],
+                        "alto" => $box["alto"],
+                        "ancho" => $box["ancho"],
+                        "largo" => $box["largo"],
+                        "volumetrico" => $box['volumetrico'],
+                        "productos" => $copiaItems
+                    ];
+                break;
+            }
+        }
+
+        if (!empty($items)) {
+            $itemsTemp = $copiaItems;
+            $itemsTemp = dividirOrden($itemsTemp, $boxes[count($boxes) - 1]); //Nota, si se usa $items quiza no sea necesario volver a dividirlo.
+            $resultado = llenarCaja($itemsTemp, $boxes[count($boxes) - 1]); //Array que contiene: $itemsAlmacenados[0] / $itemsRestantes[1]
+            $pedido[] = [
+                "id-caja" => $boxes[count($boxes) - 1]['id'],
+                "nombre-caja" => $boxes[count($boxes) - 1]['nombre'],
+                "alto" => $boxes[count($boxes) - 1]["alto"],
+                "ancho" => $boxes[count($boxes) - 1]["ancho"],
+                "largo" => $boxes[count($boxes) - 1]["largo"],
+                "volumetrico" => $boxes[count($boxes) - 1]['volumetrico'],
+                "productos" => $resultado[0]
+            ];
+
+
+
+            $pedido = array_merge($pedido, elegirCaja($resultado[1], $boxes));
+        }
+        return $pedido;
+    }
+
+    /*
+     */
+    $json1 = '[
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 6,
+            "nombre": "Objeto prueba 2",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 20,
+            "volumetrico": 8000
+        },
+        {
+            "id": 6,
+            "nombre": "Objeto prueba 2",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 20,
+            "volumetrico": 8000
+        },
+        {
+            "id": 6,
+            "nombre": "Objeto prueba 2",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 20,
+            "volumetrico": 8000
+        }
+    ]';
+
+    $json2 = '[
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 5,
+            "nombre": "Objeto prueba",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 40,
+            "volumetrico": 16000
+        },
+        {
+            "id": 6,
+            "nombre": "Objeto prueba 2",
+            "precio": 0,
+            "peso": 1,
+            "alto": 20,
+            "ancho": 20,
+            "largo": 20,
+            "volumetrico": 8000
+        }
+    ]';
+
+    $arrayPrueba1 = json_decode($json1, true);
+    $arrayPrueba2 = json_decode($json2, true);
+
+    // $array ahora es un array PHP que contiene los objetos convertidos del JSON
+
 
 
     //return elegirCaja($Product_list, $Box_list);
     //return dividirOrden($Product_list, $Box_list[3]);
-    return llenarCaja($Product_list, $Box_list[3]);
+    //return llenarCaja($Product_list, $Box_list[3]);
+    //return $Product_list;
+    //return $Product_request;
+    //return restarCantidades($arrayPrueba1, $arrayPrueba2);
+    return intento($Product_list, $Box_list, $Product_list);
 });
