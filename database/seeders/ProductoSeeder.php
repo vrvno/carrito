@@ -75,5 +75,59 @@ class ProductoSeeder extends Seeder
         $producto6->largo = 100;
         $producto6->peso = 100;
         $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Planner Stitch";
+        $producto6->precio = 0;
+        $producto6->alto = 2;
+        $producto6->ancho = 17;
+        $producto6->largo = 22;
+        $producto6->peso = 0.5;
+        $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Cuaderno Discos Modelo Wenu Mapu";
+        $producto6->precio = 0;
+        $producto6->alto = 2;
+        $producto6->ancho = 17;
+        $producto6->largo = 22;
+        $producto6->peso = 0.29;
+        $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Brush Pencs Monami Sea";
+        $producto6->precio = 0;
+        $producto6->alto = 1;
+        $producto6->ancho = 7;
+        $producto6->largo = 17.5;
+        $producto6->peso = 0.78;
+        $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Organigastos Anual Mujer";
+        $producto6->precio = 0;
+        $producto6->alto = 2;
+        $producto6->ancho = 10;
+        $producto6->largo = 20;
+        $producto6->peso = 0.3;
+        $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Planner Semanal Rosa Encolado";
+        $producto6->precio = 0;
+        $producto6->alto = 0.5;
+        $producto6->ancho = 14.6;
+        $producto6->largo = 21;
+        $producto6->peso = 0.086;
+        $producto6->save();
+
+        $producto6 = new Producto();
+        $producto6->nombre = "Pack Lápices Gel Negro";
+        $producto6->precio = 0;
+        $producto6->alto = 1;
+        $producto6->ancho = 1;
+        $producto6->largo = 17;
+        $producto6->peso = 0.66;
+        $producto6->save();
     }
 }

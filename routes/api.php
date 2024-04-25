@@ -128,9 +128,11 @@ Route::post('/cotizar', function (Request $request) {
                 $itemsGrandes[] = [
                     "id-caja" => 0,
                     "nombre-caja" => 'Caja de ' . $item['nombre'],
+                    "precio total" => $item["precio"],
                     "alto" => $item["alto"],
                     "ancho" => $item["ancho"],
                     "largo" => $item["largo"],
+                    "peso" => $item["peso"],
                     "volumetrico" => $item["alto"] * $item["ancho"] * $item["largo"],
                     "producto" => [$item]
                 ];
@@ -248,7 +250,17 @@ Route::post('/cotizar', function (Request $request) {
         return $arraySeparado;
     }
 
+    function sumarCantidades($items, $atributo)
+    {
+        $suma = 0;
+        foreach ($items as $item) {
+            $suma += $item[$atributo];
+        }
+        return $suma;
+    }
+
     //Llenar cajas
+    //TODO: Crear array que contenga dimensiones espacios sobrantes.
     function llenarCaja(&$items, $box, &$itemsAlmacenados)
     {
 
@@ -335,10 +347,17 @@ Route::post('/cotizar', function (Request $request) {
 
     //añadir una lista que contenga todos los productos almacenados juntos 
     //o añadir otra copia de los items para ir restando los items ingresados, para al final ver los que se ponen
-    function elegirCaja($items, $boxes, &$pedido)
+
+    //los items se podrian ordenar dos veces, por ancho y si tienen el mismo ancho => largo > largo
+    function elegirCaja($items, $boxes, &$pedido, &$copiaItems)
     {
         $boxes = ordenAscArray($boxes, 'volumetrico');
         $ultimaCaja = $boxes[count($boxes) - 1];
+
+        //validar si items está vacío
+        if (empty($items)) {
+            return [];
+        }
 
 
         $itemsTemp = dividirOrden($items, $ultimaCaja, true);
@@ -347,18 +366,22 @@ Route::post('/cotizar', function (Request $request) {
 
         if (!empty($resultado[1])) {
 
+            $cantidad = dividirOrden($resultado[0], $ultimaCaja, false);
             $pedido[] = [
                 "id-caja" => $ultimaCaja['id'],
                 "nombre-caja" => $ultimaCaja['nombre'],
+                "precio total" => sumarCantidades($cantidad, 'precio'),
                 "alto" => $ultimaCaja["alto"],
                 "ancho" => $ultimaCaja["ancho"],
                 "largo" => $ultimaCaja["largo"],
+                "peso" => sumarCantidades($cantidad, 'peso'),
                 "volumetrico" => $ultimaCaja['volumetrico'],
-                "productos" => dividirOrden($resultado[0], $ultimaCaja, false)
+                "productos" => $cantidad
             ];
 
+            $copiaItems = restarCantidades($copiaItems, $cantidad);
             $arrVacio = [];
-            $pedido[] = elegirCaja(dividirOrden($resultado[1], $ultimaCaja, false), $boxes, $arrVacio);
+            $pedido[] = elegirCaja(dividirOrden($resultado[1], $ultimaCaja, false), $boxes, $arrVacio, $copiaItems);
         } elseif (empty($resultado[1])) {
             foreach ($boxes as  $box) {
                 $itemsTemp = dividirOrden($items, $box, true);
@@ -371,11 +394,13 @@ Route::post('/cotizar', function (Request $request) {
                         [
                             "id-caja" => $box['id'],
                             "nombre-caja" => $box['nombre'],
+                            "precio total" => sumarCantidades($copiaItems, 'precio'),
                             "alto" => $box["alto"],
                             "ancho" => $box["ancho"],
                             "largo" => $box["largo"],
+                            "peso" => sumarCantidades($copiaItems, 'peso'),
                             "volumetrico" => $box['volumetrico'],
-                            "productos" => dividirOrden($resultado[0], $box, false)
+                            "productos" => $copiaItems
                         ];
                     break;
                 }
@@ -384,11 +409,24 @@ Route::post('/cotizar', function (Request $request) {
         return $pedido;
     }
 
-    //TODO: Falta validar cuando el objeto más grande no entra en ninguna caja
 
     $itemsDescartados =  descartarItems($Product_list, $Box_list);
     $arrVacio = [];
-    $resultado = elegirCaja($Product_list, $Box_list, $arrVacio);
-    $resultado[] = $itemsDescartados;
+    $resultado = elegirCaja($Product_list, $Box_list, $arrVacio, $Product_list);
+    $resultado = array_merge($resultado, $itemsDescartados);
     return $resultado;
 });
+
+
+/*
+0. Ordenan las cajas 
+0.5 Se calcula cual es la caja más grande
+0.625 Se ordenan los items por tamaño < ancho.
+0.75 Se revisa si todos los productos caben dentro de esa caja
+    1. Dividir la orden = Caja
+2. Si no caben, se llena la caja más grande con la mayor cantidad de productos
+3. Se repite el proceso hasta que no hayan items sobrantes.
+4 Se recorren todas las cajas y se elije la que puede almacenar a los restantes.
+
+
+*/
