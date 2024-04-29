@@ -68,6 +68,15 @@ class ProductoSeeder extends Seeder
         $producto6->save();
 
         $producto6 = new Producto();
+        $producto6->nombre = "Objeto prueba 3";
+        $producto6->precio = 0;
+        $producto6->alto = 10;
+        $producto6->ancho = 10;
+        $producto6->largo = 10;
+        $producto6->peso = 0.5;
+        $producto6->save();
+
+        $producto6 = new Producto();
         $producto6->nombre = "Objeto enorme";
         $producto6->precio = 100;
         $producto6->alto = 100;
