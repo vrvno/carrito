@@ -51,25 +51,25 @@ class ProductoSeeder extends Seeder
 
         $producto5 = new Producto();
         $producto5->nombre = "Objeto prueba";
-        $producto5->precio = 0;
+        $producto5->precio = 5000;
         $producto5->alto = 20;
         $producto5->ancho = 20;
         $producto5->largo = 40;
-        $producto5->peso = 1;
+        $producto5->peso = 5;
         $producto5->save();
 
         $producto6 = new Producto();
         $producto6->nombre = "Objeto prueba 2";
-        $producto6->precio = 0;
+        $producto6->precio = 2500;
         $producto6->alto = 20;
         $producto6->ancho = 20;
         $producto6->largo = 20;
-        $producto6->peso = 1;
+        $producto6->peso = 2.5;
         $producto6->save();
 
         $producto6 = new Producto();
         $producto6->nombre = "Objeto prueba 3";
-        $producto6->precio = 0;
+        $producto6->precio = 1500;
         $producto6->alto = 10;
         $producto6->ancho = 10;
         $producto6->largo = 10;
@@ -77,7 +77,7 @@ class ProductoSeeder extends Seeder
         $producto6->save();
 
         $producto6 = new Producto();
-        $producto6->nombre = "Objeto enorme";
+        $producto6->nombre = "Objeto Prueba Enorme";
         $producto6->precio = 100;
         $producto6->alto = 100;
         $producto6->ancho = 100;
@@ -86,8 +86,17 @@ class ProductoSeeder extends Seeder
         $producto6->save();
 
         $producto6 = new Producto();
+        $producto6->nombre = "Objeto Prueba delgado";
+        $producto6->precio = 2000;
+        $producto6->alto = 25;
+        $producto6->ancho = 10;
+        $producto6->largo = 20;
+        $producto6->peso = 0.2;
+        $producto6->save();
+
+        $producto6 = new Producto();
         $producto6->nombre = "Planner Stitch";
-        $producto6->precio = 0;
+        $producto6->precio = 2000;
         $producto6->alto = 2;
         $producto6->ancho = 17;
         $producto6->largo = 22;
@@ -96,7 +105,7 @@ class ProductoSeeder extends Seeder
 
         $producto6 = new Producto();
         $producto6->nombre = "Cuaderno Discos Modelo Wenu Mapu";
-        $producto6->precio = 0;
+        $producto6->precio = 3500;
         $producto6->alto = 2;
         $producto6->ancho = 17;
         $producto6->largo = 22;
@@ -105,7 +114,7 @@ class ProductoSeeder extends Seeder
 
         $producto6 = new Producto();
         $producto6->nombre = "Brush Pencs Monami Sea";
-        $producto6->precio = 0;
+        $producto6->precio = 2000;
         $producto6->alto = 1;
         $producto6->ancho = 7;
         $producto6->largo = 17.5;
@@ -114,7 +123,7 @@ class ProductoSeeder extends Seeder
 
         $producto6 = new Producto();
         $producto6->nombre = "Organigastos Anual Mujer";
-        $producto6->precio = 0;
+        $producto6->precio = 1500;
         $producto6->alto = 2;
         $producto6->ancho = 10;
         $producto6->largo = 20;
@@ -123,7 +132,7 @@ class ProductoSeeder extends Seeder
 
         $producto6 = new Producto();
         $producto6->nombre = "Planner Semanal Rosa Encolado";
-        $producto6->precio = 0;
+        $producto6->precio = 1500;
         $producto6->alto = 0.5;
         $producto6->ancho = 14.6;
         $producto6->largo = 21;
@@ -132,7 +141,7 @@ class ProductoSeeder extends Seeder
 
         $producto6 = new Producto();
         $producto6->nombre = "Pack Lápices Gel Negro";
-        $producto6->precio = 0;
+        $producto6->precio = 1000;
         $producto6->alto = 1;
         $producto6->ancho = 1;
         $producto6->largo = 17;

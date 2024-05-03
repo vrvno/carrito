@@ -70,8 +70,21 @@ Route::post('/cotizar', function (Request $request) {
         return $array;
     }
 
+    //Función para ordenar Arrays Descendente:
+    function ordenarItems($items)
+    {
+        usort($items, function ($a, $b) {
+            if ($a['ancho'] == $b['ancho']) {
+                return $b['largo'] - $a['largo']; // Ordenar por largo en caso de ancho igual
+            }
+            return $b['ancho'] - $a['ancho']; // Ordenar por ancho
+        });
+        return $items;
+    }
+
     // CODIGO QUE FUNCIONA //
 
+    //Crear cajas para items más grandes que las cajas disponibles.
     function descartarItems(&$items, $boxes)
     {
         $boxes = ordenAscArray($boxes, 'volumetrico');
@@ -102,8 +115,7 @@ Route::post('/cotizar', function (Request $request) {
         return $itemsGrandes;
     }
 
-    //Se usa más tarde para calcular total de items sobrantes.
-    function restarCantidades($array1, $array2)
+    function restarCantidades($array1, $array2) // No se utiliza actualmente pero podría ser relevente.
     {
         // Seguimiento de cantidades en el primer array
         $cantidades = [];
@@ -137,6 +149,7 @@ Route::post('/cotizar', function (Request $request) {
         return $resultado;
     }
 
+    //Transforma arrays a un formato contable
     function ordenarPorCantidades($items)
     {
         $conteo = [];
@@ -162,6 +175,7 @@ Route::post('/cotizar', function (Request $request) {
         return $conteo;
     }
 
+    //Formatea los arrays para ser procesadas individualmente.
     function dividirPorCantidades($conteo)
     {
         $arraySeparado = [];
@@ -174,7 +188,7 @@ Route::post('/cotizar', function (Request $request) {
             // Crear elementos individuales duplicados según la cantidad
             for ($i = 0; $i < $cantidad; $i++) {
                 $elementoIndividual = [
-                    "id" => $id,
+                    "id" => $elemento["id"],
                     "nombre" => $elemento["nombre"],
                     "precio" => $elemento["precio"],
                     "peso" => $elemento["peso"],
@@ -190,24 +204,26 @@ Route::post('/cotizar', function (Request $request) {
         return $arraySeparado;
     }
 
-    //añadir una tercera opcion para dejar la lita tal cual (no dividir ni multiplicar)
-    function dividirOrden($items, $box, $metodo) //TODO: RESTAR ARRAY ORIGINAL CON EXCEDENTE.
+    //Esta función calcula:
+    //      1. La cantidad de items que caben en la base de una caja (true).
+    //      2. La cantidad máxima que se pueden almacenar en una caja (false).
+    function dividirOrden($items, $box, $metodo)
     {
         //ordenar items de mayor a menor
-        $items = ordenDescArray($items, 'ancho');
+        $items = ordenarItems($items);
         $conteo = ordenarPorCantidades($items);
 
         if ($metodo === true) {
-            //calcular items necesarios en la base// 
+            //calcular items necesarios en la base
             foreach ($conteo as &$item) {
                 $cantidadPermitida = floor($box['alto'] / $item['alto']);
-                //$item['cantidad'] = floor($box['alto'] / $item['alto']);
                 if ($cantidadPermitida < 1) {
                     $cantidadPermitida = 1;
                 }
                 $item['cantidad'] = ceil($item['cantidad'] / $cantidadPermitida);
             }
         } elseif ($metodo === false) {
+            //Calcular cantidad máxima
             foreach ($conteo as &$item) {
                 $cantidadOriginal = floor($box['alto'] / $item['alto']);
                 $item['cantidad'] = ceil($item['cantidad'] * $cantidadOriginal); //quizas es floor
@@ -220,6 +236,7 @@ Route::post('/cotizar', function (Request $request) {
         return $arraySeparado;
     }
 
+    //Utilizado para sumar el peso/precio de los items almacenados.
     function sumarCantidades($items, $atributo)
     {
         $suma = 0;
@@ -240,13 +257,8 @@ Route::post('/cotizar', function (Request $request) {
         return $box;
     }
 
-    //Llenar cajas
-    //TODO: Crear array que contenga dimensiones espacios sobrantes.
     function llenarCaja(&$items, $box, &$itemsAlmacenados)
     {
-
-
-
 
         foreach ($items as $key => $item) {
             //Posicionar correctamente caja
@@ -277,10 +289,7 @@ Route::post('/cotizar', function (Request $request) {
         return $resultado;
     }
 
-    //añadir una lista que contenga todos los productos almacenados juntos 
-    //o añadir otra copia de los items para ir restando los items ingresados, para al final ver los que se ponen
 
-    //los items se podrian ordenar dos veces, por ancho y si tienen el mismo ancho => largo > largo
     function elegirCaja($items, $boxes, &$pedido, &$copiaItems)
     {
         $boxes = ordenAscArray($boxes, 'volumetrico');
@@ -342,6 +351,7 @@ Route::post('/cotizar', function (Request $request) {
         return $pedido;
     }
 
+    //Esta función resta los items almacenados del array original.
     function ajustarCantidad(&$items, $itemsMax)
     {
         $items = ordenarPorCantidades($items);
@@ -368,11 +378,15 @@ Route::post('/cotizar', function (Request $request) {
         return $itemsAlmacenados;
     }
 
+    $itemsDescartados = descartarItems($Product_list, $Box_list);
     $arrVacio = [];
-    $pedido = elegirCaja($Product_list, $Box_list, $arrVacio, $Product_list);
+    $resultado = elegirCaja($Product_list, $Box_list, $arrVacio, $Product_list);
+    $pedido = array_merge($itemsDescartados, $resultado);
     return $pedido;
 });
 
+//TODO: es necesario ordenar los items por ancho y luego por largo.
+//TODO: Crear una funcion para alternar ancho por largo en caso de ser necesario
 
 /*
 0. Ordenan las cajas 
@@ -383,6 +397,14 @@ Route::post('/cotizar', function (Request $request) {
 2. Si no caben, se llena la caja más grande con la mayor cantidad de productos
 3. Se repite el proceso hasta que no hayan items sobrantes.
 4 Se recorren todas las cajas y se elije la que puede almacenar a los restantes.
+*/
 
+/*
+CODIGO DE EJECUCIÓN:
 
+  $itemsDescartados = descartarItems($Product_list, $Box_list);
+    $arrVacio = [];
+    $resultado = elegirCaja($Product_list, $Box_list, $arrVacio, $Product_list);
+    $pedido = array_merge($itemsDescartados, $resultado);
+    return $pedido;
 */
