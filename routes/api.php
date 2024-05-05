@@ -257,6 +257,22 @@ Route::post('/cotizar', function (Request $request) {
         return $box;
     }
 
+
+    function alinearProductos(&$products)
+    {
+        foreach ($products as &$product) {
+            $alto = $product['alto'];
+            $ancho = $product['ancho'];
+            $largo = $product['largo'];
+            $dimensiones = [$alto, $ancho, $largo];
+            sort($dimensiones);
+            $product['largo'] = $dimensiones[2];
+            $product['ancho'] = $dimensiones[1];
+            $product['alto'] = $dimensiones[0];
+        }
+        unset($product);
+    }
+
     function llenarCaja(&$items, $box, &$itemsAlmacenados)
     {
 
@@ -378,6 +394,9 @@ Route::post('/cotizar', function (Request $request) {
         return $itemsAlmacenados;
     }
 
+
+    alinearProductos($Product_list);
+    alinearProductos($Box_list);
     $itemsDescartados = descartarItems($Product_list, $Box_list);
     $arrVacio = [];
     $resultado = elegirCaja($Product_list, $Box_list, $arrVacio, $Product_list);
